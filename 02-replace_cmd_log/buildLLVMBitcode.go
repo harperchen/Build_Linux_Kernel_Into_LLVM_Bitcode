@@ -18,7 +18,7 @@ var path = "/home/weichen/linux-5.15"
 
 // "is -save-temps or not"
 // two kinds of two to generate bitcode
-var isSaveTemps = true
+var isSaveTemps = false
 
 var CC = filepath.Join(Path, NameClang)
 var LD = filepath.Join(Path, NameLD)
@@ -53,7 +53,7 @@ const (
 
 	CmdLinkVmlinux = "llvm-link -v -o built-in.bc arch/x86/kernel/head_64.bc arch/x86/kernel/head64.bc arch/x86/kernel/ebda.bc arch/x86/kernel/platform-quirks.bc init/built-in.bc usr/built-in.bc arch/x86/built-in.bc kernel/built-in.bc certs/built-in.bc mm/built-in.bc fs/built-in.bc ipc/built-in.bc security/built-in.bc crypto/built-in.bc block/built-in.bc lib/built-in.bc arch/x86/lib/built-in.bc lib/lib.bc arch/x86/lib/lib.bc drivers/built-in.bc sound/built-in.bc net/built-in.bc virt/built-in.bc arch/x86/pci/built-in.bc arch/x86/power/built-in.bc arch/x86/video/built-in.bc\n"
 	// CmdTools skip the cmd with CmdTools
-	CmdTools = "-BUILD_STR(s)=$(pound)s"
+	CmdTools = "BUILD_STR(s)=$(pound)s"
 )
 
 func checkSpecial(res string) string {
