@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -13,7 +14,7 @@ import (
 var cmd = "kernel"
 
 // "The path of kernel, e.g., linux"
-var path = "."
+var path = "/home/weichen/linux-5.15"
 
 // "is -save-temps or not"
 // two kinds of two to generate bitcode
@@ -55,6 +56,31 @@ const (
 	CmdTools = "-BUILD_STR(s)=$(pound)s"
 )
 
+func checkSpecial(res string) string {
+	i := strings.Index(res, "BUILD_STR(s)=$(pound)s")
+	if i > -1 {
+		array := strings.Split(res, " ")
+		srcfile := array[len(array)-1]
+
+		if sort.SearchStrings([]string{"bpf.c", "bpf_prog_linfo.c", "btf.c", "btf_dump.c", "gen_loader.c", "hashmap.c", "libbpf.c", "libbpf_errno.c", "xsk.c", "strset.c", "str_error.c", "ringbuf.c", "relo_core.c", "nlattr.c", "netlink.c", "linker.c", "libbpf_probes"}, srcfile) < 17 {
+			srcfile = "tools/lib/bpf/" + srcfile
+		} else if sort.SearchStrings([]string{"builtin-check.c", "builtin-orc.c", "check.c", "elf.c", "objtool.c", "orc_dump.c", "orc_gen.c", "special.c", "weak.c", "arch/x86/decode.c", "arch/x86/special.c"}, srcfile) < 11 {
+			srcfile = "tools/objtool/" + srcfile
+		} else if srcfile == "fixdep.c" {
+			srcfile = "tools/build/" + srcfile
+		} else if sort.SearchStrings([]string{"exec-cmd.c", "help.c", "pager.c", "parse-options.c", "run-command.c", "sigchain.c", "subcmd-config.c"}, srcfile) < 7 {
+			srcfile = "tools/lib/subcmd/" + srcfile
+		} else if sort.SearchStrings([]string{"../lib/ctype.c", "../lib/rbtree.c", "../lib/string.c", "../lib/std_error_r.c"}, srcfile) < 4 {
+			srcfile = strings.Replace(srcfile, "..", "tools", -1)
+		} else {
+
+		}
+		array[len(array)-1] = srcfile
+		res = strings.Join(array, " ")
+	}
+	return res
+}
+
 func getCmd(cmdFilePath string) string {
 	res := ""
 	if _, err := os.Stat(cmdFilePath); os.IsNotExist(err) {
@@ -95,6 +121,7 @@ func getCmd(cmdFilePath string) string {
 			log.Fatal(err)
 		}
 	}
+	res = checkSpecial(res)
 	res += "\n"
 	return res
 }
