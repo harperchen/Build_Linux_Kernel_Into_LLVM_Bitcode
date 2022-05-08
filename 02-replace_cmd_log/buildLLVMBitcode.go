@@ -136,7 +136,7 @@ func replaceCC(cmd string, addFlag bool) string {
 				res += cmd[:i]
 				res += FlagCC
 				if isSaveTemps {
-					res += " -save-temps=obj"
+					res += " -fembed-bitcode -save-temps=obj"
 				} else {
 					res += " -emit-llvm"
 				}
