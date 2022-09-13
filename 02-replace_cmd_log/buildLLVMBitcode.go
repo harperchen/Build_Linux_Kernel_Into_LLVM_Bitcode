@@ -14,7 +14,7 @@ import (
 var cmd = "kernel"
 
 // "The path of kernel, e.g., linux"
-var path = "/home/weichen/linux-5.15"
+var path = "/home/weichen/v6.0-rc4"
 
 // "is -save-temps or not"
 // two kinds of two to generate bitcode
@@ -26,7 +26,6 @@ var FlagCC = FlagAll + FlagCCNoNumber
 
 const (
 	PrefixCmd  = "cmd_"
-	SuffixCmd  = ".cmd"
 	SuffixCC   = ".o.cmd"
 	SuffixLD   = ".a.cmd"
 	SuffixLTO  = ".lto.o.cmd"
@@ -44,14 +43,14 @@ const (
 	// FlagCCNoNumber add label to basic blocks and variables
 	FlagCCNoNumber = " -fno-discard-value-names"
 
-	NameLD = "llvm-link"
+	NameLD = "llvm-link-12"
 	FlagLD = " -v"
 
 	// Path of clang and llvm-link
 	// Path   = "/home/yhao016/data/benchmark/hang/kernel/toolchain/clang-r353983c/bin/"
 	Path = ""
 
-	CmdLinkVmlinux = "llvm-link -v -o built-in.bc arch/x86/kernel/head_64.bc arch/x86/kernel/head64.bc arch/x86/kernel/ebda.bc arch/x86/kernel/platform-quirks.bc init/built-in.bc usr/built-in.bc arch/x86/built-in.bc kernel/built-in.bc certs/built-in.bc mm/built-in.bc fs/built-in.bc ipc/built-in.bc security/built-in.bc crypto/built-in.bc block/built-in.bc lib/built-in.bc arch/x86/lib/built-in.bc lib/lib.bc arch/x86/lib/lib.bc drivers/built-in.bc sound/built-in.bc net/built-in.bc virt/built-in.bc arch/x86/pci/built-in.bc arch/x86/power/built-in.bc arch/x86/video/built-in.bc\n"
+	CmdLinkVmlinux = "llvm-link-12 -v -o built-in.bc arch/x86/kernel/head_64.bc arch/x86/kernel/head64.bc arch/x86/kernel/ebda.bc arch/x86/kernel/platform-quirks.bc init/built-in.bc usr/built-in.bc arch/x86/built-in.bc kernel/built-in.bc certs/built-in.bc mm/built-in.bc fs/built-in.bc ipc/built-in.bc security/built-in.bc crypto/built-in.bc block/built-in.bc lib/built-in.bc arch/x86/lib/built-in.bc lib/lib.bc arch/x86/lib/lib.bc drivers/built-in.bc sound/built-in.bc net/built-in.bc virt/built-in.bc arch/x86/pci/built-in.bc arch/x86/power/built-in.bc arch/x86/video/built-in.bc\n"
 	// CmdTools skip the cmd with CmdTools
 	CmdTools = "BUILD_STR(s)=$(pound)s"
 )
@@ -197,8 +196,46 @@ func replaceLD(cmd string) string {
 	// fmt.Println("Index: ", i)
 	if i := strings.Index(cmd, " rcSTPD"); i > -1 {
 		res = replace(cmd, i)
-	} else if i := strings.Index(cmd, " cDPrST"); i > -1 {
-		res = replace(cmd, i)
+	} else if i := strings.Index(cmd, " | xargs"); i > -1 {
+		tar := strings.Index(cmd, " cDPrST")
+		target := cmd[tar+8 : len(cmd)-1]
+
+		cmd = cmd[:i]
+		path := ""
+		j := strings.Index(cmd, "printf \"")
+		k := strings.Index(cmd, "%s \"")
+		if j > -1 {
+			path += cmd[j+8 : k]
+			cmd = cmd[k+5:]
+		}
+
+		new_cmd := ""
+
+		for _, file := range strings.Split(cmd, " ") {
+			new_cmd += path
+			new_cmd += file
+			new_cmd += " "
+		}
+		new_cmd = new_cmd[:len(new_cmd)-1] + "\n"
+		cmd = new_cmd
+		if strings.Count(cmd, ".") > 1 {
+			res += LD
+			res += FlagLD
+			res += " -o "
+			res += target + " "
+			res += cmd
+			if strings.Contains(res, "drivers/of/unittest-data/built-in.o") {
+				res = ""
+			}
+			res = strings.Replace(res, ".o", ".bc", -1)
+		} else {
+			res = "echo \"\" > " + cmd
+		}
+		res = strings.Replace(res, ".a ", ".bc ", -1)
+		res = strings.Replace(res, ".a\n", ".bc\n", -1)
+		// for this drivers/misc/lkdtm/rodata.bc
+		res = strings.Replace(res, "rodata_objcopy.bc", "rodata.bc", -1)
+		res = strings.Replace(res, " drivers/of/unittest-data/built-in.bc", "", -1)
 	} else if i := strings.Index(cmd, " cDPrsT"); i > -1 {
 		res = replace(cmd, i)
 	} else {
@@ -257,6 +294,9 @@ func buildModule(moduleDirPath string) string {
 			// for kernel module (*.ko, *.lto)
 			if strings.HasSuffix(info.Name(), SuffixCC) {
 				cmd := getCmd(path)
+				if strings.HasPrefix(cmd, NameClang) {
+					return nil
+				}
 				res2 = replaceLD(cmd) + res2
 			}
 			if strings.HasSuffix(info.Name(), SuffixLTO) {
@@ -273,7 +313,7 @@ func buildModule(moduleDirPath string) string {
 	fmt.Println("module_file")
 	fmt.Println(module_file)
 
-	return res1 + res2
+	return res2
 }
 
 func generateScript(path string, cmd string) {
