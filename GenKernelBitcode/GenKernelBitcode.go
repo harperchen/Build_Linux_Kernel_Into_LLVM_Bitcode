@@ -228,10 +228,10 @@ func handleSuffixCCWithLD(cmd string, path string) string {
 		obj := ""
 		for _, s := range s1 {
 			if strings.HasSuffix(s, ".o") {
-				obj = " " + strings.Replace(s, ".o", ".bc", -1) + obj
+				obj += " " + strings.Replace(s, ".o", ".bc", -1)
 			}
 			if strings.HasSuffix(s, ".a") {
-				obj = " " + strings.Replace(s, ".a", ".bc", -1) + obj
+				obj += " " + strings.Replace(s, ".a", ".bc", -1)
 			}
 		}
 		res += obj
@@ -250,7 +250,7 @@ func handleOBJCOPY(cmd string) string {
 	obj := ""
 	for _, s := range s1 {
 		if strings.HasSuffix(s, ".o") {
-			obj = " " + strings.Replace(s, ".o", ".bc", -1) + obj
+			obj += " " + strings.Replace(s, ".o", ".bc", -1)
 		}
 	}
 	res += obj
@@ -266,7 +266,7 @@ func handleSTRIP(cmd string) string {
 	s1 = strings.Split(cmd, " ")
 	for _, s := range s1 {
 		if strings.HasSuffix(s, ".o") {
-			res = res + " " + strings.Replace(s, ".o", ".bc", -1)
+			res += " " + strings.Replace(s, ".o", ".bc", -1)
 		}
 	}
 	res += "\n"
