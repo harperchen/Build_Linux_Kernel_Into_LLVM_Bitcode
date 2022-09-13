@@ -29,7 +29,9 @@ var OBJCOPY = flag.String("OBJCOPY", "llvm-objcopy", "Name of OBJCOPY")
 var STRIP = flag.String("STRIP", "llvm-strip", "Name of STRIP")
 
 // ToolChain of clang and llvm-link
-var ToolChain = flag.String("toolchain", "", "Path of clang and llvm-link")
+var ToolChain = flag.String("toolchain", "", "Dir of clang and llvm-link")
+var NameClang = flag.String("clang", "clang-12", "Path of clang")
+var NameLD = flag.String("llvm-link", "llvm-link-12", "Path of llvm-link")
 
 var FlagCC = FlagAll + FlagCCNoNumber
 
@@ -43,8 +45,6 @@ const (
 	SuffixKO   = ".ko.cmd"
 	NameScript = "build.sh"
 
-	NameClang = "clang-12"
-
 	// FlagAll : -w disable warning
 	// FlagAll : -g debug info
 	FlagAll = " -w -g"
@@ -55,7 +55,6 @@ const (
 	// FlagCCNoNumber add label to basic blocks and variables
 	FlagCCNoNumber = " -fno-discard-value-names"
 
-	NameLD    = "llvm-link-12"
 	FlagLD    = " -v "
 	FlagOutLD = " -o "
 
@@ -160,7 +159,7 @@ func handleCC(cmd string) string {
 	}
 	// res = " " + res
 	// use -O0 install of other optimization
-	res = strings.Replace(res, *CC+" ", filepath.Join(*ToolChain, NameClang)+" ", -1)
+	res = strings.Replace(res, *CC+" ", filepath.Join(*ToolChain, *NameClang)+" ", -1)
 	// res = strings.Replace(res, " -Os ", " -O0 ", -1)
 	// res = strings.Replace(res, " -O3 ", " -O0 ", -1)
 	// res = strings.Replace(res, " -O2 ", " -O0 ", -1)
@@ -207,7 +206,7 @@ func handleSuffixCCWithLD(cmd string, path string) string {
 			log.Fatal(err)
 		}
 
-		res += filepath.Join(*ToolChain, NameLD)
+		res += filepath.Join(*ToolChain, *NameLD)
 		res += FlagLD
 		res += FlagOutLD
 		res += cmd[strings.Index(cmd, FlagOutLD)+len(FlagOutLD) : strings.Index(cmd, "@")]
@@ -220,7 +219,7 @@ func handleSuffixCCWithLD(cmd string, path string) string {
 		res += "\n"
 
 	} else if strings.HasPrefix(cmd, *LLD) {
-		res += filepath.Join(*ToolChain, NameLD)
+		res += filepath.Join(*ToolChain, *NameLD)
 		res += FlagLD
 		res += FlagOutLD
 
@@ -245,7 +244,7 @@ func handleSuffixCCWithLD(cmd string, path string) string {
 
 // handle llvm-objcopy cmd
 func handleOBJCOPY(cmd string) string {
-	res := filepath.Join(*ToolChain, NameLD) + FlagLD + FlagOutLD
+	res := filepath.Join(*ToolChain, *NameLD) + FlagLD + FlagOutLD
 	cmd = cmd[:len(cmd)-1]
 	s1 := strings.Split(cmd, " ")
 	obj := ""
@@ -261,7 +260,7 @@ func handleOBJCOPY(cmd string) string {
 
 // handle llvm-strip cmd
 func handleSTRIP(cmd string) string {
-	res := filepath.Join(*ToolChain, NameLD) + FlagLD + FlagOutLD
+	res := filepath.Join(*ToolChain, *NameLD) + FlagLD + FlagOutLD
 	s1 := strings.Split(cmd, ";")
 	cmd = s1[0]
 	s1 = strings.Split(cmd, " ")
@@ -280,7 +279,7 @@ func handleLD(cmd string) string {
 		res := ""
 		cmd = cmd[i+length:]
 		if strings.Count(cmd, ".") > 1 {
-			res += filepath.Join(*ToolChain, NameLD)
+			res += filepath.Join(*ToolChain, *NameLD)
 			res += FlagLD
 			res += FlagOutLD
 			res += cmd
@@ -333,7 +332,7 @@ func handleLD(cmd string) string {
 		new_cmd = new_cmd[:len(new_cmd)-1] + "\n"
 		cmd = new_cmd
 		if strings.Count(cmd, ".") > 1 {
-			res += filepath.Join(*ToolChain, NameLD)
+			res += filepath.Join(*ToolChain, *NameLD)
 			res += FlagLD
 			res += FlagOutLD
 			res += target + " "
@@ -369,7 +368,7 @@ func handleLD(cmd string) string {
 // handler *.lto for external modules
 func handleLTO(cmd string) string {
 	res := ""
-	res += filepath.Join(*ToolChain, NameLD)
+	res += filepath.Join(*ToolChain, *NameLD)
 	res += FlagLD
 	res += FlagOutLD
 
@@ -393,7 +392,7 @@ func handleLTO(cmd string) string {
 // handle .ko for external modules
 func handleKO(cmd string) (string, string) {
 	res := ""
-	res += filepath.Join(*ToolChain, NameLD)
+	res += filepath.Join(*ToolChain, *NameLD)
 	res += FlagLD
 	res += FlagOutLD
 
@@ -556,7 +555,7 @@ func main() {
 		{
 			fmt.Printf("Build kernel and external module\n")
 			res, res5 := build(*path)
-			res += filepath.Join(*ToolChain, NameLD) + CmdLinkVmlinux + res5 + "\n"
+			res += filepath.Join(*ToolChain, *NameLD) + CmdLinkVmlinux + res5 + "\n"
 			generateScript(*path, res)
 		}
 	default:
