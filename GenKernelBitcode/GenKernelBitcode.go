@@ -168,7 +168,7 @@ func handleCC(cmd string) string {
 	// res = strings.Replace(res, " -march=armv8-a+crypto ", "  ", -1)
 	// res = strings.Replace(res, " -mno-fp-ret-in-387 ", "  ", -1)
 	// res = strings.Replace(res, " -mskip-rax-setup ", "  ", -1)
-	// res = strings.Replace(res, " -ftrivial-auto-var-init=zero ", "  ", -1)
+	res = strings.Replace(res, " -ftrivial-auto-var-init=zero ", "  ", -1)
 
 	return res
 }
