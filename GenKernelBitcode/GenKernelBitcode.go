@@ -43,7 +43,7 @@ const (
 	SuffixKO   = ".ko.cmd"
 	NameScript = "build.sh"
 
-	NameClang = "clang"
+	NameClang = "clang-12"
 
 	// FlagAll : -w disable warning
 	// FlagAll : -g debug info
@@ -160,7 +160,7 @@ func handleCC(cmd string) string {
 	}
 	// res = " " + res
 	// use -O0 install of other optimization
-	// res = strings.Replace(res, " "+*CC+" ", " "+filepath.Join(*ToolChain, NameClang)+" ", -1)
+	res = strings.Replace(res, *CC+" ", filepath.Join(*ToolChain, NameClang)+" ", -1)
 	// res = strings.Replace(res, " -Os ", " -O0 ", -1)
 	// res = strings.Replace(res, " -O3 ", " -O0 ", -1)
 	// res = strings.Replace(res, " -O2 ", " -O0 ", -1)
