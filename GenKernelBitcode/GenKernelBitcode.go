@@ -429,18 +429,23 @@ func build(kernelPath string) (string, string) {
 				cmd := getCmd(path)
 				if strings.HasPrefix(cmd, *CC) {
 					cmd := handleCC(cmd)
+					cmd = strings.Replace(cmd, "\n", " &\n", -1)
 					cmdCC += cmd
 				} else if strings.Index(cmd, *AR) > -1 {
 					cmd = handleLD(cmd)
+					cmd = strings.Replace(cmd, "\n", " &\n", -1)
 					cmdLDInCC = cmd + cmdLDInCC
 				} else if strings.Index(cmd, *LLD) > -1 {
 					cmd = handleSuffixCCWithLD(cmd, kernelPath)
+					cmd = strings.Replace(cmd, "\n", " &\n", -1)
 					cmdLDInCC = cmd + cmdLDInCC
 				} else if strings.HasPrefix(cmd, *OBJCOPY) {
 					cmd = handleOBJCOPY(cmd)
+					cmd = strings.Replace(cmd, "\n", " &\n", -1)
 					cmdLDInCC = cmd + cmdLDInCC
 				} else if strings.HasPrefix(cmd, *STRIP) {
 					cmd = handleSTRIP(cmd)
+					cmd = strings.Replace(cmd, "\n", " &\n", -1)
 					cmdLDInCC = cmd + cmdLDInCC
 				} else {
 					fmt.Println(*CC + " not found")
