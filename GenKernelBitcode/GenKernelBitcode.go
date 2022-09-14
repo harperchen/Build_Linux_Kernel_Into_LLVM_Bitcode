@@ -429,23 +429,23 @@ func build(kernelPath string) (string, string) {
 				cmd := getCmd(path)
 				if strings.HasPrefix(cmd, *CC) {
 					cmd := handleCC(cmd)
-					cmd = strings.Replace(cmd, "\n", " &\n", -1)
+					cmd = "read -u3\n{\n    " + cmd + "    echo >&3\n}&\n"
 					cmdCC += cmd
 				} else if strings.Index(cmd, *AR) > -1 {
 					cmd = handleLD(cmd)
-					cmd = strings.Replace(cmd, "\n", " &\n", -1)
+					cmd = "read -u3\n{\n    " + cmd + "    echo >&3\n}&\n"
 					cmdLDInCC = cmd + cmdLDInCC
 				} else if strings.Index(cmd, *LLD) > -1 {
 					cmd = handleSuffixCCWithLD(cmd, kernelPath)
-					cmd = strings.Replace(cmd, "\n", " &\n", -1)
+					cmd = "read -u3\n{\n    " + cmd + "    echo >&3\n}&\n"
 					cmdLDInCC = cmd + cmdLDInCC
 				} else if strings.HasPrefix(cmd, *OBJCOPY) {
 					cmd = handleOBJCOPY(cmd)
-					cmd = strings.Replace(cmd, "\n", " &\n", -1)
+					cmd = "read -u3\n{\n    " + cmd + "    echo >&3\n}&\n"
 					cmdLDInCC = cmd + cmdLDInCC
 				} else if strings.HasPrefix(cmd, *STRIP) {
 					cmd = handleSTRIP(cmd)
-					cmd = strings.Replace(cmd, "\n", " &\n", -1)
+					cmd = "read -u3\n{\n    " + cmd + "    echo >&3\n}&\n"
 					cmdLDInCC = cmd + cmdLDInCC
 				} else {
 					fmt.Println(*CC + " not found")
@@ -519,7 +519,16 @@ func build(kernelPath string) (string, string) {
 
 func generateScript(path string, cmd string) {
 	res := "#!/bin/bash\n"
+	res += "[ -e ./fd1 ] || mkfifo ./fd1\n"
+	res += "exec 3<> ./fd1\n"
+	res += "rm -rf ./fd1\n"
+	res += "for i in `seq 1 70`;\n"
+	res += "do\n"
+	res += "    echo >&3\n"
+	res += "done\n\n"
 	res += cmd
+	res += "exec 3<&-\n"
+	res += "exec 3>&-\n"
 
 	pathScript := filepath.Join(path, NameScript)
 	_ = os.RemoveAll(pathScript)
