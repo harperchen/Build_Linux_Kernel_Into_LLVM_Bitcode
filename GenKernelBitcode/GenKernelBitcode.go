@@ -250,7 +250,7 @@ func handleOBJCOPY(cmd string) string {
 	obj := ""
 	for _, s := range s1 {
 		if strings.HasSuffix(s, ".o") {
-			obj += " " + strings.Replace(s, ".o", ".bc", -1)
+			obj = " " + strings.Replace(s, ".o", ".bc", -1) + obj
 		}
 	}
 	res += obj
@@ -476,7 +476,7 @@ func build(kernelPath string) (string, string) {
 
 					}
 
-					objs := strings.Split(cmd[strings.Index(cmd, " "):len(cmd)-1], " ")
+					objs := strings.Split(cmd[strings.Index(cmd, " ")+1:len(cmd)-1], " ")
 					for _, bc := range objs {
 						linkedBitcodes[bc] = true
 					}
