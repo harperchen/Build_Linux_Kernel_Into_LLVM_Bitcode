@@ -331,7 +331,7 @@ func handleLD(cmd string) string {
 		}
 		new_cmd = new_cmd[:len(new_cmd)-1] + "\n"
 		cmd = new_cmd
-		if strings.Count(cmd, ".") > 1 {
+		if strings.Count(cmd, ".") >= 1 {
 			res += filepath.Join(*ToolChain, *NameLD)
 			res += FlagLD
 			res += FlagOutLD
