@@ -40,10 +40,11 @@ const (
 	SuffixCmd = ".cmd"
 	SuffixCC  = ".o.cmd"
 
-	SuffixLD   = ".a.cmd"
-	SuffixLTO  = ".lto.o.cmd"
-	SuffixKO   = ".ko.cmd"
-	NameScript = "build.sh"
+	SuffixLD      = ".a.cmd"
+	SuffixLTO     = ".lto.o.cmd"
+	SuffixKO      = ".ko.cmd"
+	SuffixVmlinux = "vmlinux.o.cmd"
+	NameScript    = "build.sh"
 
 	// FlagAll : -w disable warning
 	// FlagAll : -g debug info
@@ -118,7 +119,6 @@ func getCmd(cmdFilePath string) string {
 func handleCC(cmd string) string {
 	res := ""
 	if i := strings.Index(cmd, " -c "); i > -1 {
-
 		if j := strings.Index(cmd, CmdTools); j > -1 {
 			return res
 		}
@@ -140,9 +140,9 @@ func handleCC(cmd string) string {
 		}
 
 		// for multiply ";"
-		if strings.Count(res, " ; ") == 1 {
+		if strings.Count(res, " ; ") >= 1 {
 			i := strings.Index(res, ";")
-			res = res[:i] + "\n"
+			res = res[:i]
 		}
 		res = strings.TrimSpace(res) + "\n"
 
@@ -177,8 +177,9 @@ func handleCC(cmd string) string {
 // @file_name in *.o.cmd includes the related file
 // need to get the name from that file
 func handleSuffixCCWithLD(cmd string, path string) string {
-	cmd = strings.TrimSpace(cmd)
 	res := ""
+	cmd = strings.TrimSpace(cmd)
+
 	if strings.Index(cmd, "@") > -1 {
 		fileName := cmd[strings.Index(cmd, "@")+1 : len(cmd)]
 		filePath := filepath.Join(path, fileName)
@@ -243,6 +244,7 @@ func handleSuffixCCWithLD(cmd string, path string) string {
 }
 
 // handle llvm-objcopy cmd
+// llvm-objcopy <input> <output>
 func handleOBJCOPY(cmd string) string {
 	res := filepath.Join(*ToolChain, *NameLD) + FlagLD + FlagOutLD
 	cmd = cmd[:len(cmd)-1]
@@ -278,14 +280,19 @@ func handleLD(cmd string) string {
 	replace := func(cmd string, i int, length int) string {
 		res := ""
 		cmd = cmd[i+length:]
+		bc_files := strings.Split(cmd, " ")
+		// disable kasan and kcov
+		if bc_files[0] == "mm/kasan/built-in.a" {
+			return res
+		}
 		if strings.Count(cmd, ".") > 1 {
 			res += filepath.Join(*ToolChain, *NameLD)
 			res += FlagLD
 			res += FlagOutLD
 			res += cmd
-			if strings.Contains(res, "drivers/of/unittest-data/built-in.o") {
-				res = ""
-			}
+			// if strings.Contains(res, "drivers/of/unittest-data/built-in.o") {
+			// 	res = ""
+			// }
 			res = strings.Replace(res, ".o", ".bc", -1)
 		} else {
 			res = "echo \"\" > " + cmd
@@ -294,11 +301,11 @@ func handleLD(cmd string) string {
 		res = strings.Replace(res, ".a ", ".bc ", -1)
 		res = strings.Replace(res, ".a\n", ".bc\n", -1)
 		// for this drivers/misc/lkdtm/rodata.bc
-		res = strings.Replace(res, "rodata_objcopy.bc", "rodata.bc", -1)
-		res = strings.Replace(res, " drivers/of/unittest-data/built-in.bc", "", -1)
-
+		// res = strings.Replace(res, "rodata_objcopy.bc", "rodata.bc", -1)
+		res = strings.Replace(res, "mm/kasan/built-in.bc", "", -1)
+		res = strings.Replace(res, "kernel/kcov.bc", "", -1)
 		// for multiply cmd or ";" pick the first one
-		if strings.Count(res, ";") > 1 {
+		if strings.Count(res, ";") >= 1 {
 			i := strings.Index(res, ";")
 			res = res[:i] + "\n"
 		}
@@ -330,25 +337,8 @@ func handleLD(cmd string) string {
 			new_cmd += " "
 		}
 		new_cmd = new_cmd[:len(new_cmd)-1] + "\n"
-		cmd = new_cmd
-		if strings.Count(cmd, ".") >= 1 {
-			res += filepath.Join(*ToolChain, *NameLD)
-			res += FlagLD
-			res += FlagOutLD
-			res += target + " "
-			res += cmd
-			if strings.Contains(res, "drivers/of/unittest-data/built-in.o") {
-				res = ""
-			}
-			res = strings.Replace(res, ".o", ".bc", -1)
-		} else {
-			res = "echo \"\" > " + cmd
-		}
-		res = strings.Replace(res, ".a ", ".bc ", -1)
-		res = strings.Replace(res, ".a\n", ".bc\n", -1)
-		// for this drivers/misc/lkdtm/rodata.bc
-		res = strings.Replace(res, "rodata_objcopy.bc", "rodata.bc", -1)
-		res = strings.Replace(res, " drivers/of/unittest-data/built-in.bc", "", -1)
+		cmd = target + " " + new_cmd
+		res = replace(cmd, 0, 0)
 	} else if i := strings.Index(cmd, " cDPrST "); i > -1 {
 		res = replace(cmd, i, len(" cDPrST "))
 	} else if i := strings.Index(cmd, " cDPrsT "); i > -1 {
@@ -424,7 +414,7 @@ func build(kernelPath string) (string, string) {
 			}
 			//  handle, all *.o.cmd files.
 			//  do not include  *.lto.o.cmd files
-			if strings.HasSuffix(info.Name(), SuffixCC) && !strings.HasSuffix(info.Name(), SuffixLTO) {
+			if strings.HasSuffix(info.Name(), SuffixCC) && !strings.HasSuffix(info.Name(), SuffixVmlinux) {
 				//  get cmd from the file
 				cmd := getCmd(path)
 				if strings.HasPrefix(cmd, *CC) {
@@ -439,6 +429,14 @@ func build(kernelPath string) (string, string) {
 					cmd = handleSuffixCCWithLD(cmd, kernelPath)
 					cmd = "read -u3\n{\n    " + cmd + "    echo >&3\n}&\n"
 					cmdLDInCC = cmd + cmdLDInCC
+					if strings.Index(cmd, FlagOutLD) > -1 {
+						cmd = cmd[strings.Index(cmd, FlagOutLD)+len(FlagOutLD):]
+
+						objs := strings.Split(cmd[strings.Index(cmd, " ")+1:len(cmd)-1], " ")
+						for _, bc := range objs {
+							linkedBitcodes[bc] = true
+						}
+					}
 				} else if strings.HasPrefix(cmd, *OBJCOPY) {
 					cmd = handleOBJCOPY(cmd)
 					cmd = "read -u3\n{\n    " + cmd + "    echo >&3\n}&\n"
@@ -477,8 +475,9 @@ func build(kernelPath string) (string, string) {
 					if _, ok := linkedBitcodes[obj]; ok {
 
 					} else {
-						builtinModules[obj] = true
-
+						if obj != "drivers/firmware/efi/libstub/lib.bc" {
+							builtinModules[obj] = true
+						}
 					}
 
 					objs := strings.Split(cmd[strings.Index(cmd, " ")+1:len(cmd)-1], " ")
@@ -491,12 +490,27 @@ func build(kernelPath string) (string, string) {
 				//for external module *.lto
 				cmd := getCmd(path)
 				cmdLink = handleLTO(cmd) + cmdLink
+				if strings.Index(cmd, FlagOutLD) > -1 {
+					cmd = cmd[strings.Index(cmd, FlagOutLD)+len(FlagOutLD):]
+					objs := strings.Split(cmd[strings.Index(cmd, " ")+1:len(cmd)-1], " ")
+					for _, bc := range objs {
+						linkedBitcodes[bc] = true
+					}
+				}
 
 			} else if strings.HasSuffix(info.Name(), SuffixKO) {
 				//for external module *.ko
 				cmd, moduleFile := handleKO(getCmd(path))
 				cmdLink = cmd + cmdLink
 				moduleFiles = moduleFile + " " + moduleFiles
+				if strings.Index(cmd, FlagOutLD) > -1 {
+					cmd = cmd[strings.Index(cmd, FlagOutLD)+len(FlagOutLD):]
+					objs := strings.Split(cmd[strings.Index(cmd, " ")+1:len(cmd)-1], " ")
+					for _, bc := range objs {
+						linkedBitcodes[bc] = true
+					}
+				}
+
 			}
 
 			return nil
@@ -513,7 +527,7 @@ func build(kernelPath string) (string, string) {
 	for module, _ := range builtinModules {
 		resFinal += " " + module
 	}
-
+	resFinal = " arch/x86/kernel/head_64.bc arch/x86/kernel/head64.bc arch/x86/kernel/ebda.bc arch/x86/kernel/platform-quirks.bc" + resFinal
 	return cmdCC + cmdLDInCC + cmdLink + "\n# external modules: " + moduleFiles + "\n", resFinal
 }
 
