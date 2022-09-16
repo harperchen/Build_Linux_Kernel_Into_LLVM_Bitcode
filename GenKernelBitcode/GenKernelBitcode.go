@@ -130,7 +130,12 @@ func handleCC(cmd string) string {
 		} else {
 			res += " -emit-llvm"
 		}
+
 		res += cmd[i:]
+
+		target := strings.Split(cmd[i:], " ")[3]
+		target = strings.Replace(target, ".o", ".bc", -1)
+		bitcodes[target] = true
 
 		// replace .o to .bc
 		if *IsSaveTemps {
@@ -211,6 +216,8 @@ func handleSuffixCCWithLD(cmd string, path string) string {
 		res += FlagLD
 		res += FlagOutLD
 		res += cmd[strings.Index(cmd, FlagOutLD)+len(FlagOutLD) : strings.Index(cmd, "@")]
+		target := cmd[strings.Index(cmd, FlagOutLD)+len(FlagOutLD) : strings.Index(cmd, "@")-1]
+		bitcodes[strings.Replace(target, ".o", ".bc", -1)] = true
 
 		for _, s := range text {
 			res += s + " "
@@ -225,7 +232,8 @@ func handleSuffixCCWithLD(cmd string, path string) string {
 		res += FlagOutLD
 
 		cmd = cmd[:len(cmd)-1]
-		s1 := strings.Split(cmd, " ")
+		s1 := strings.Split(cmd[strings.Index(cmd, "-o")+3:], " ")
+		bitcodes[strings.Replace(s1[0], ".o", ".bc", -1)] = true
 		obj := ""
 		for _, s := range s1 {
 			if strings.HasSuffix(s, ".o") {
@@ -240,6 +248,7 @@ func handleSuffixCCWithLD(cmd string, path string) string {
 	} else {
 		fmt.Println("handleSuffixCCWithLD cmd error: " + cmd)
 	}
+
 	return res
 }
 
@@ -250,6 +259,7 @@ func handleOBJCOPY(cmd string) string {
 	cmd = cmd[:len(cmd)-1]
 	s1 := strings.Split(cmd, " ")
 	obj := ""
+	bitcodes[strings.Replace(s1[len(s1)-1], ".o", ".bc", -1)] = true
 	for _, s := range s1 {
 		if strings.HasSuffix(s, ".o") {
 			obj = " " + strings.Replace(s, ".o", ".bc", -1) + obj
@@ -265,7 +275,8 @@ func handleSTRIP(cmd string) string {
 	res := filepath.Join(*ToolChain, *NameLD) + FlagLD + FlagOutLD
 	s1 := strings.Split(cmd, ";")
 	cmd = s1[0]
-	s1 = strings.Split(cmd, " ")
+	s1 = strings.Split(cmd[strings.Index(cmd, "-o")+3:], " ")
+	bitcodes[strings.Replace(s1[0], ".o", ".bc", -1)] = true
 	for _, s := range s1 {
 		if strings.HasSuffix(s, ".o") {
 			res += " " + strings.Replace(s, ".o", ".bc", -1)
@@ -290,12 +301,14 @@ func handleLD(cmd string) string {
 			res += FlagLD
 			res += FlagOutLD
 			res += cmd
+			bitcodes[strings.Replace(strings.Split(cmd, " ")[0], ".a", ".bc", -1)] = true
 			// if strings.Contains(res, "drivers/of/unittest-data/built-in.o") {
 			// 	res = ""
 			// }
 			res = strings.Replace(res, ".o", ".bc", -1)
 		} else {
 			res = "echo \"\" > " + cmd
+			bitcodes[strings.Replace(strings.Split(cmd[:len(cmd)-1], " ")[0], ".a", ".bc", -1)] = true
 			res = strings.Replace(res, ".o", ".bc ", -1)
 		}
 		res = strings.Replace(res, ".a ", ".bc ", -1)
@@ -395,10 +408,9 @@ func handleKO(cmd string) (string, string) {
 	cmd = cmd[strings.Index(cmd, FlagOutLD)+len(FlagOutLD):]
 	cmd = strings.Replace(cmd, ".ko", ".ko.bc", -1)
 	cmd = strings.Replace(cmd, ".o", ".bc", -1)
-
+	bitcodes[strings.Split(cmd, " ")[0]] = true
 	moduleFile := cmd[:strings.Index(cmd, ".ko.bc")+len(".ko.bc")]
 	res += cmd
-
 	return res, moduleFile
 }
 
@@ -528,7 +540,37 @@ func build(kernelPath string) (string, string) {
 		resFinal += " " + module
 	}
 	resFinal = " arch/x86/kernel/head_64.bc arch/x86/kernel/head64.bc arch/x86/kernel/ebda.bc arch/x86/kernel/platform-quirks.bc" + resFinal
-	return cmdCC + cmdLDInCC + cmdLink + "\n# external modules: " + moduleFiles + "\n", resFinal
+
+	purgeCmdLDInCC := ""
+	for _, res := range strings.Split(cmdLDInCC, "\n") {
+		valid := true
+		for _, ele := range strings.Split(res, " ") {
+			if strings.HasSuffix(ele, ".bc") {
+				if _, ok := bitcodes[ele]; !ok {
+					valid = false
+				}
+			}
+		}
+		if valid {
+			purgeCmdLDInCC += res + "\n"
+		}
+	}
+	purgeCmdLink := ""
+	for _, res := range strings.Split(cmdLink, "\n") {
+		valid := true
+		for _, ele := range strings.Split(res, " ") {
+			if strings.HasSuffix(ele, ".bc") {
+				if _, ok := bitcodes[ele]; !ok {
+					valid = false
+				}
+			}
+		}
+		if valid {
+			purgeCmdLink += res + "\n"
+		}
+	}
+
+	return cmdCC + purgeCmdLDInCC + purgeCmdLink + "\n# external modules: " + moduleFiles + "\n", resFinal
 }
 
 func generateScript(path string, cmd string) {
