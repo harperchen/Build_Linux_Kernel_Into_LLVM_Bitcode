@@ -231,7 +231,6 @@ func handleSuffixCCWithLD(cmd string, path string) string {
 		res += FlagLD
 		res += FlagOutLD
 
-		cmd = cmd[:len(cmd)-1]
 		s1 := strings.Split(cmd[strings.Index(cmd, "-o")+3:], " ")
 		bitcodes[strings.Replace(s1[0], ".o", ".bc", -1)] = true
 		obj := ""
