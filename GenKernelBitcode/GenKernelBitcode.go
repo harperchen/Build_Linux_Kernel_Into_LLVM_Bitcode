@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -14,7 +15,7 @@ import (
 var cmd = flag.String("cmd", "kernel", "Build one module or whole kernel, e.g., module, kernel")
 
 // The path of kernel, e.g., linux
-var path = flag.String("path", "/home/weichen/v6.0-rc4", "the path of kernel")
+var path = flag.String("path", "/home/weichen/linux", "the path of kernel")
 
 // IsSaveTemps : use -save-temps or emit-llvm to generate LLVM Bitcode
 // two kinds of two to generate bitcode
@@ -24,9 +25,9 @@ var IsSaveTemps = flag.Bool("isSaveTemp", false, "use -save-temps or -emit-llvm"
 var CC = flag.String("CC", "clang", "Name of CC")
 var LD = flag.String("LD", "llvm-link", "Name of LD")
 var AR = flag.String("AR", "llvm-ar", "Name of AR")
-var LLD = flag.String("LLD", "ld.lld", "Name of LD")
-var OBJCOPY = flag.String("OBJCOPY", "llvm-objcopy", "Name of OBJCOPY")
-var STRIP = flag.String("STRIP", "llvm-strip", "Name of STRIP")
+var LLD = flag.String("LLD", "ld", "Name of LD")
+var OBJCOPY = flag.String("OBJCOPY", "objcopy", "Name of OBJCOPY")
+var STRIP = flag.String("STRIP", "strip", "Name of STRIP")
 
 // ToolChain of clang and llvm-link
 var ToolChain = flag.String("toolchain", "", "Dir of clang and llvm-link")
@@ -333,22 +334,19 @@ func handleLD(cmd string) string {
 		target := cmd[tar+8 : len(cmd)-1]
 
 		cmd = cmd[:i]
-		path := ""
-		j := strings.Index(cmd, "printf \"")
-		k := strings.Index(cmd, "%s \"")
-		if j > -1 {
-			path += cmd[j+8 : k]
-			cmd = cmd[k+5:]
-		}
-
 		new_cmd := ""
-
-		for _, file := range strings.Split(cmd, " ") {
-			new_cmd += path
-			new_cmd += file
-			new_cmd += " "
+		j := strings.Index(cmd, "echo")
+		if j > -1 {
+			cmd = cmd[j:]
+			output, err := exec.Command("bash", "-c", cmd).Output()
+			if err != nil {
+				fmt.Println("Error: ", err)
+			} else {
+				new_cmd = strings.TrimSpace((string(output)))
+			}
 		}
-		new_cmd = new_cmd[:len(new_cmd)-1] + "\n"
+
+		new_cmd += "\n"
 		cmd = target + " " + new_cmd
 		res = replace(cmd, 0, 0)
 	} else if i := strings.Index(cmd, " cDPrST "); i > -1 {
